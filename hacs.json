@@ -1,7 +1,5 @@
 {
   "name": "Marstek Venus",
-  "content_in_root": false,
-  "filename": "marstek_venus",
   "render_readme": true,
   "homeassistant": "2023.8.0"
 }
