@@ -1,5 +1,6 @@
 {
   "name": "Marstek Venus",
   "render_readme": true,
-  "homeassistant": "2023.8.0"
+  "homeassistant": "2023.8.0",
+  "domains": ["marstek_venus"]
 }

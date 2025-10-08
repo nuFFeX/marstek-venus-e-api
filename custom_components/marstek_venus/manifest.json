@@ -1,7 +1,7 @@
 {
   "domain": "marstek_venus",
   "name": "Marstek Venus",
-  "codeowners": ["@marstek"],
+  "codeowners": ["@nuFFeX"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/nuFFeX/marstek-venus-e-api",
