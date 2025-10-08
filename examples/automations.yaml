@@ -1,0 +1,298 @@
+# Example Home Assistant Automations for Marstek Venus Integration
+
+# ===== Mode Control =====
+
+# Switch to Auto mode at sunrise
+- alias: "Marstek: Auto Mode bei Sonnenaufgang"
+  description: "Schaltet das Marstek Venus System bei Sonnenaufgang in den Auto-Modus"
+  trigger:
+    - platform: sun
+      event: sunrise
+  action:
+    - service: select.select_option
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        option: "Auto"
+
+# Switch to Passive mode during peak hours
+- alias: "Marstek: Passive Mode während Spitzenzeiten"
+  description: "Aktiviert Passive-Modus während der Spitzenlastzeiten (17:00-21:00)"
+  trigger:
+    - platform: time
+      at: "17:00:00"
+  action:
+    - service: marstek_venus.set_passive_mode
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        power: 500
+        cd_time: 14400  # 4 hours
+
+# Return to Auto mode after peak hours
+- alias: "Marstek: Auto Mode nach Spitzenzeiten"
+  trigger:
+    - platform: time
+      at: "21:00:00"
+  action:
+    - service: select.select_option
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        option: "Auto"
+
+# ===== Battery Management =====
+
+# Low battery notification
+- alias: "Marstek: Warnung bei niedriger Batterie"
+  description: "Benachrichtigung wenn Batterie unter 20% fällt"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.marstek_venus_battery_soc
+      below: 20
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "⚠️ Niedrige Batterie"
+        message: "Marstek Batterie ist bei {{ states('sensor.marstek_venus_battery_soc') }}%"
+        data:
+          priority: high
+
+# High battery notification
+- alias: "Marstek: Benachrichtigung bei voller Batterie"
+  description: "Benachrichtigung wenn Batterie voll geladen ist"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.marstek_venus_battery_soc
+      above: 95
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "🔋 Batterie voll"
+        message: "Marstek Batterie ist bei {{ states('sensor.marstek_venus_battery_soc') }}% geladen"
+
+# Battery temperature warning
+- alias: "Marstek: Warnung bei hoher Batterietemperatur"
+  description: "Warnung wenn Batterietemperatur über 45°C steigt"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.marstek_venus_battery_temperature
+      above: 45
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "🌡️ Hohe Batterietemperatur"
+        message: "Batterietemperatur: {{ states('sensor.marstek_venus_battery_temperature') }}°C"
+        data:
+          priority: high
+          tag: "high_temp"
+
+# ===== Solar Production =====
+
+# Good solar production notification
+- alias: "Marstek: Hohe Solarproduktion"
+  description: "Benachrichtigung bei hoher Solarleistung (>1000W)"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.marstek_venus_solar_power
+      above: 1000
+  condition:
+    - condition: state
+      entity_id: binary_sensor.notification_solar_sent
+      state: "off"
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "☀️ Hohe Solarproduktion"
+        message: "Aktuelle Solarleistung: {{ states('sensor.marstek_venus_solar_power') }}W"
+    - service: input_boolean.turn_on
+      target:
+        entity_id: binary_sensor.notification_solar_sent
+
+# Reset solar notification helper at midnight
+- alias: "Marstek: Reset Solarbenachrichtigung"
+  trigger:
+    - platform: time
+      at: "00:00:00"
+  action:
+    - service: input_boolean.turn_off
+      target:
+        entity_id: binary_sensor.notification_solar_sent
+
+# ===== Energy Management =====
+
+# Switch to manual charging mode when grid power is cheap
+- alias: "Marstek: Laden bei günstigem Strom"
+  description: "Lädt Batterie wenn Strompreis günstig ist"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.electricity_price
+      below: 0.15  # Adjust to your needs
+  action:
+    - service: marstek_venus.set_manual_mode
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        time_num: 0
+        start_time: "{{ now().strftime('%H:%M') }}"
+        end_time: "{{ (now() + timedelta(hours=2)).strftime('%H:%M') }}"
+        week_set: 127
+        power: 2000
+
+# Maximize self-consumption during day
+- alias: "Marstek: Maximaler Eigenverbrauch tagsüber"
+  description: "Optimiert Eigenverbrauch während Solarproduktion"
+  trigger:
+    - platform: time
+      at: "09:00:00"
+  condition:
+    - condition: sun
+      after: sunrise
+      before: sunset
+  action:
+    - service: select.select_option
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        option: "AI"
+
+# ===== Grid Management =====
+
+# Alert on high grid consumption
+- alias: "Marstek: Warnung bei hohem Netzbezug"
+  description: "Benachrichtigung bei hohem Netzbezug (>2000W)"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.marstek_venus_grid_power
+      above: 2000
+      for:
+        minutes: 5
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "⚡ Hoher Netzbezug"
+        message: "Aktueller Netzbezug: {{ states('sensor.marstek_venus_grid_power') }}W"
+
+# Alert when feeding to grid
+- alias: "Marstek: Einspeisung ins Netz"
+  description: "Benachrichtigung bei Netzeinspeisung"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.marstek_venus_grid_power
+      below: -500  # Negative values indicate feed-in
+      for:
+        minutes: 5
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "🔌 Netzeinspeisung aktiv"
+        message: "Einspeisung: {{ (states('sensor.marstek_venus_grid_power') | float * -1) | round(0) }}W"
+
+# ===== WiFi Monitoring =====
+
+# Weak WiFi signal alert
+- alias: "Marstek: Schwaches WLAN-Signal"
+  description: "Warnung bei schwachem WLAN-Signal"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.marstek_venus_wifi_signal_strength
+      below: -75
+      for:
+        minutes: 10
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "📶 Schwaches WLAN-Signal"
+        message: "Marstek WLAN-Signal: {{ states('sensor.marstek_venus_wifi_signal_strength') }} dBm"
+
+# ===== Daily Reports =====
+
+# Daily energy summary
+- alias: "Marstek: Tägliche Energieübersicht"
+  description: "Sendet tägliche Zusammenfassung der Energiedaten"
+  trigger:
+    - platform: time
+      at: "22:00:00"
+  action:
+    - service: notify.mobile_app
+      data:
+        title: "📊 Marstek Tagesübersicht"
+        message: |
+          Batterie: {{ states('sensor.marstek_venus_battery_soc') }}%
+          Solarproduktion heute: {{ (states('sensor.marstek_venus_total_solar_energy') | float / 1000) | round(2) }} kWh
+          Netzbezug: {{ (states('sensor.marstek_venus_total_grid_input_energy') | float / 1000) | round(2) }} kWh
+          Netzeinspeisung: {{ (states('sensor.marstek_venus_total_grid_output_energy') | float / 1000) | round(2) }} kWh
+          Verbrauch: {{ (states('sensor.marstek_venus_total_load_energy') | float / 1000) | round(2) }} kWh
+
+# ===== Seasonal Optimization =====
+
+# Winter mode: Maximize battery usage
+- alias: "Marstek: Wintermodus"
+  description: "Aktiviert optimierte Einstellungen für Winter"
+  trigger:
+    - platform: state
+      entity_id: sensor.season
+      to: "winter"
+  action:
+    - service: select.select_option
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        option: "Manual"
+
+# Summer mode: Maximize solar utilization
+- alias: "Marstek: Sommermodus"
+  description: "Aktiviert optimierte Einstellungen für Sommer"
+  trigger:
+    - platform: state
+      entity_id: sensor.season
+      to: "summer"
+  action:
+    - service: select.select_option
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        option: "Auto"
+
+# ===== Emergency Management =====
+
+# Switch to passive mode during power outage
+- alias: "Marstek: Notfallmodus bei Stromausfall"
+  description: "Schaltet in Passive-Modus bei erkanntem Stromausfall"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.power_outage
+      to: "on"
+  action:
+    - service: marstek_venus.set_passive_mode
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        power: 300  # Conservative power during outage
+        cd_time: 3600
+    - service: notify.mobile_app
+      data:
+        title: "⚠️ Notfallmodus aktiviert"
+        message: "Marstek wurde auf Notfallmodus (300W) geschaltet"
+        data:
+          priority: high
+
+# Resume normal operation after power returns
+- alias: "Marstek: Normalbetrieb nach Stromausfall"
+  description: "Kehrt zu Auto-Modus zurück nach Stromausfall"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.power_outage
+      to: "off"
+      for:
+        minutes: 5
+  action:
+    - service: select.select_option
+      target:
+        entity_id: select.marstek_venus_operating_mode
+      data:
+        option: "Auto"
+    - service: notify.mobile_app
+      data:
+        title: "✅ Normalbetrieb wiederhergestellt"
+        message: "Marstek wurde auf Auto-Modus zurückgesetzt"

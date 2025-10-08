@@ -1,0 +1,102 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Marstek Venus Configuration",
+        "description": "Enter the connection details for your Marstek Venus device",
+        "data": {
+          "host": "IP Address",
+          "port": "UDP Port",
+          "ble_mac": "Bluetooth MAC (optional, use 0 for discovery)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device. Please check the IP address and port.",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Battery SOC"
+      },
+      "battery_temperature": {
+        "name": "Battery Temperature"
+      },
+      "battery_capacity": {
+        "name": "Battery Capacity"
+      },
+      "rated_capacity": {
+        "name": "Rated Capacity"
+      },
+      "pv_power": {
+        "name": "Solar Power"
+      },
+      "pv_voltage": {
+        "name": "Solar Voltage"
+      },
+      "pv_current": {
+        "name": "Solar Current"
+      },
+      "es_battery_soc": {
+        "name": "Total Battery SOC"
+      },
+      "es_battery_capacity": {
+        "name": "Total Battery Capacity"
+      },
+      "ongrid_power": {
+        "name": "Grid Power"
+      },
+      "offgrid_power": {
+        "name": "Off-Grid Power"
+      },
+      "battery_power": {
+        "name": "Battery Power"
+      },
+      "total_pv_energy": {
+        "name": "Total Solar Energy"
+      },
+      "total_grid_output_energy": {
+        "name": "Total Grid Output Energy"
+      },
+      "total_grid_input_energy": {
+        "name": "Total Grid Input Energy"
+      },
+      "total_load_energy": {
+        "name": "Total Load Energy"
+      },
+      "operating_mode": {
+        "name": "Operating Mode"
+      },
+      "wifi_ssid": {
+        "name": "WiFi SSID"
+      },
+      "wifi_rssi": {
+        "name": "WiFi Signal Strength"
+      }
+    },
+    "select": {
+      "operating_mode": {
+        "name": "Operating Mode",
+        "state": {
+          "Auto": "Auto",
+          "AI": "AI",
+          "Manual": "Manual",
+          "Passive": "Passive"
+        }
+      }
+    },
+    "switch": {
+      "charge_permission": {
+        "name": "Charge Permission"
+      },
+      "discharge_permission": {
+        "name": "Discharge Permission"
+      }
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Marstek Venus Konfiguration",
+        "description": "Geben Sie die Verbindungsdetails für Ihr Marstek Venus Gerät ein",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "UDP-Port",
+          "ble_mac": "Bluetooth-MAC (optional, verwenden Sie 0 für Erkennung)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Gerät fehlgeschlagen. Bitte überprüfen Sie die IP-Adresse und den Port.",
+      "unknown": "Unerwarteter Fehler aufgetreten"
+    },
+    "abort": {
+      "already_configured": "Gerät ist bereits konfiguriert"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Batterie-Ladezustand"
+      },
+      "battery_temperature": {
+        "name": "Batterietemperatur"
+      },
+      "battery_capacity": {
+        "name": "Batteriekapazität"
+      },
+      "rated_capacity": {
+        "name": "Nennkapazität"
+      },
+      "pv_power": {
+        "name": "Solarleistung"
+      },
+      "pv_voltage": {
+        "name": "Solarspannung"
+      },
+      "pv_current": {
+        "name": "Solarstrom"
+      },
+      "es_battery_soc": {
+        "name": "Gesamtbatterie-Ladezustand"
+      },
+      "es_battery_capacity": {
+        "name": "Gesamtbatteriekapazität"
+      },
+      "ongrid_power": {
+        "name": "Netzleistung"
+      },
+      "offgrid_power": {
+        "name": "Off-Grid-Leistung"
+      },
+      "battery_power": {
+        "name": "Batterieleistung"
+      },
+      "total_pv_energy": {
+        "name": "Gesamte Solarenergie"
+      },
+      "total_grid_output_energy": {
+        "name": "Gesamte Netzabgabe"
+      },
+      "total_grid_input_energy": {
+        "name": "Gesamte Netzbezug"
+      },
+      "total_load_energy": {
+        "name": "Gesamter Lastverbrauch"
+      },
+      "operating_mode": {
+        "name": "Betriebsmodus"
+      },
+      "wifi_ssid": {
+        "name": "WLAN-SSID"
+      },
+      "wifi_rssi": {
+        "name": "WLAN-Signalstärke"
+      }
+    },
+    "select": {
+      "operating_mode": {
+        "name": "Betriebsmodus",
+        "state": {
+          "Auto": "Automatisch",
+          "AI": "KI",
+          "Manual": "Manuell",
+          "Passive": "Passiv"
+        }
+      }
+    },
+    "switch": {
+      "charge_permission": {
+        "name": "Ladeberechtigung"
+      },
+      "discharge_permission": {
+        "name": "Entladeberechtigung"
+      }
+    }
+  }
+}

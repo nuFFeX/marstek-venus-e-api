@@ -1,0 +1,98 @@
+set_manual_mode:
+  name: Set Manual Mode
+  description: Set the device to manual mode with custom time schedule and power settings
+  target:
+    entity:
+      integration: marstek_venus
+      domain: select
+  fields:
+    time_num:
+      name: Time Period Number
+      description: Time period serial number (0-9 for Venus C/E)
+      required: true
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 9
+          mode: box
+    start_time:
+      name: Start Time
+      description: Start time in HH:MM format
+      required: true
+      example: "08:00"
+      selector:
+        time:
+    end_time:
+      name: End Time
+      description: End time in HH:MM format
+      required: true
+      example: "20:00"
+      selector:
+        time:
+    week_set:
+      name: Week Days
+      description: |
+        Week days setting (0-127). Binary representation:
+        Bit 0 (1): Monday
+        Bit 1 (2): Tuesday
+        Bit 2 (4): Wednesday
+        Bit 3 (8): Thursday
+        Bit 4 (16): Friday
+        Bit 5 (32): Saturday
+        Bit 6 (64): Sunday
+        Example: 127 = all days, 31 = Monday-Friday
+      required: false
+      default: 127
+      example: 127
+      selector:
+        number:
+          min: 0
+          max: 127
+          mode: box
+    power:
+      name: Power
+      description: Power setting in Watts
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+set_passive_mode:
+  name: Set Passive Mode
+  description: Set the device to passive mode with custom power and countdown timer
+  target:
+    entity:
+      integration: marstek_venus
+      domain: select
+  fields:
+    power:
+      name: Power
+      description: Power setting in Watts
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 10
+          unit_of_measurement: W
+          mode: box
+    cd_time:
+      name: Countdown Time
+      description: Countdown time in seconds
+      required: false
+      default: 300
+      example: 300
+      selector:
+        number:
+          min: 0
+          max: 86400
+          step: 1
+          unit_of_measurement: s
+          mode: box

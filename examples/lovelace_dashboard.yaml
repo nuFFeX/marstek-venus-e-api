@@ -1,0 +1,237 @@
+# Example Lovelace Dashboard Configuration for Marstek Venus
+
+# Complete dashboard view
+views:
+  - title: Marstek Venus
+    icon: mdi:solar-power
+    badges: []
+    cards:
+      # Status Overview Card
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # 🔋 Marstek Venus Energiespeicher
+              Echtzeitüberwachung und Steuerung
+          
+          # Battery Status
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.marstek_venus_battery_soc
+                name: Batterie-Ladezustand
+                min: 0
+                max: 100
+                severity:
+                  green: 60
+                  yellow: 30
+                  red: 0
+                needle: true
+              
+              - type: sensor
+                entity: sensor.marstek_venus_battery_capacity
+                name: Aktuelle Kapazität
+                graph: line
+              
+              - type: sensor
+                entity: sensor.marstek_venus_battery_temperature
+                name: Batterietemperatur
+                graph: line
+
+      # Solar Production Card
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## ☀️ Solarproduktion"
+          
+          - type: horizontal-stack
+            cards:
+              - type: sensor
+                entity: sensor.marstek_venus_solar_power
+                name: Aktuelle Leistung
+                graph: line
+                detail: 2
+              
+              - type: sensor
+                entity: sensor.marstek_venus_solar_voltage
+                name: Spannung
+                graph: line
+              
+              - type: sensor
+                entity: sensor.marstek_venus_solar_current
+                name: Strom
+                graph: line
+          
+          - type: statistic
+            entity: sensor.marstek_venus_total_solar_energy
+            name: Gesamte Solarenergie
+            stat_type: change
+            period:
+              calendar:
+                period: day
+
+      # Energy Flow Card
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## ⚡ Energiefluss"
+          
+          - type: entities
+            entities:
+              - entity: sensor.marstek_venus_grid_power
+                name: Netzleistung
+                icon: mdi:transmission-tower
+              - entity: sensor.marstek_venus_off_grid_power
+                name: Off-Grid Leistung
+                icon: mdi:power-plug-off
+              - entity: sensor.marstek_venus_battery_power
+                name: Batterieleistung
+                icon: mdi:battery-charging
+              - type: divider
+              - entity: sensor.marstek_venus_total_battery_soc
+                name: Gesamtbatterie SOC
+              - entity: sensor.marstek_venus_total_battery_capacity
+                name: Gesamtkapazität
+
+      # Mode Control Card
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🎛️ Betriebsmodus"
+          
+          - type: entities
+            entities:
+              - entity: select.marstek_venus_operating_mode
+                name: Betriebsmodus
+              - entity: sensor.marstek_venus_operating_mode
+                name: Aktueller Modus
+              - type: divider
+              - entity: switch.marstek_venus_charge_permission
+                name: Ladeberechtigung
+              - entity: switch.marstek_venus_discharge_permission
+                name: Entladeberechtigung
+
+      # Energy Statistics Card
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 📊 Energiestatistik"
+          
+          - type: entities
+            entities:
+              - entity: sensor.marstek_venus_total_solar_energy
+                name: Gesamte Solarenergie
+                icon: mdi:solar-power
+              - entity: sensor.marstek_venus_total_grid_input_energy
+                name: Netzbezug gesamt
+                icon: mdi:transmission-tower
+              - entity: sensor.marstek_venus_total_grid_output_energy
+                name: Netzeinspeisung gesamt
+                icon: mdi:transmission-tower-export
+              - entity: sensor.marstek_venus_total_load_energy
+                name: Gesamtverbrauch
+                icon: mdi:home-lightning-bolt
+
+      # Network Information Card
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 📡 Netzwerkstatus"
+          
+          - type: entities
+            entities:
+              - entity: sensor.marstek_venus_wifi_ssid
+                name: WLAN-Netzwerk
+                icon: mdi:wifi
+              - entity: sensor.marstek_venus_wifi_signal_strength
+                name: Signalstärke
+                icon: mdi:signal
+
+      # History Graph Card
+      - type: history-graph
+        title: Leistungsverlauf (24h)
+        hours_to_show: 24
+        entities:
+          - entity: sensor.marstek_venus_solar_power
+            name: Solar
+          - entity: sensor.marstek_venus_grid_power
+            name: Netz
+          - entity: sensor.marstek_venus_battery_power
+            name: Batterie
+          - entity: sensor.marstek_venus_battery_soc
+            name: SOC
+
+      # Energy Distribution Card (requires custom:sankey-chart card)
+      # Install via HACS: https://github.com/MindFreeze/ha-sankey-chart
+      - type: custom:sankey-chart
+        title: Energiefluss
+        show_names: true
+        show_values: true
+        sections:
+          - entities:
+              - entity_id: sensor.marstek_venus_solar_power
+                color: '#ffa500'
+                name: Solar
+              - entity_id: sensor.marstek_venus_grid_power
+                color: '#0066cc'
+                name: Netz
+          - entities:
+              - entity_id: sensor.marstek_venus_battery_power
+                color: '#00cc66'
+                name: Batterie
+          - entities:
+              - entity_id: sensor.marstek_venus_total_load_energy
+                color: '#cc0000'
+                name: Verbrauch
+
+# Mini dashboard for mobile
+  - title: Marstek Mobil
+    icon: mdi:cellphone
+    panel: false
+    badges:
+      - entity: sensor.marstek_venus_battery_soc
+      - entity: sensor.marstek_venus_solar_power
+      - entity: sensor.marstek_venus_grid_power
+    cards:
+      - type: glance
+        title: Schnellübersicht
+        entities:
+          - entity: sensor.marstek_venus_battery_soc
+            name: SOC
+          - entity: sensor.marstek_venus_solar_power
+            name: Solar
+          - entity: sensor.marstek_venus_grid_power
+            name: Netz
+          - entity: sensor.marstek_venus_battery_power
+            name: Batterie
+      
+      - type: entities
+        title: Steuerung
+        entities:
+          - entity: select.marstek_venus_operating_mode
+            name: Modus
+      
+      - type: history-graph
+        title: Verlauf (6h)
+        hours_to_show: 6
+        entities:
+          - sensor.marstek_venus_battery_soc
+          - sensor.marstek_venus_solar_power
+
+# Energy Dashboard Configuration
+# Go to: Configuration -> Energy
+# Configure the following:
+
+# Electricity Grid:
+#   - Grid Consumption: sensor.marstek_venus_total_grid_input_energy
+#   - Return to Grid: sensor.marstek_venus_total_grid_output_energy
+
+# Solar Panels:
+#   - Solar Production: sensor.marstek_venus_total_solar_energy
+
+# Home Battery Storage:
+#   - Energy going in: (calculate from battery_power when positive)
+#   - Energy going out: (calculate from battery_power when negative)
+
+# Individual Devices:
+#   - Total Consumption: sensor.marstek_venus_total_load_energy
