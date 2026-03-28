@@ -227,6 +227,17 @@ Developed based on the Marstek Device Open API documentation (REV 0.5).
 
 ## Changelog
 
+See [CHANGELOG.md](CHANGELOG.md) for the full history.
+
+### Version 0.1.2 (2026-03-28)
+- Correct WiFi RPC method name (`Wifi.GetStatus`) for Venus E
+- No `PV.GetStatus` in poll; PV from `ES.GetStatus`; UDP id-matching and longer timeouts
+- Coordinator keeps last good values when a poll partially fails
+
+### Version 0.1.1 (2026-03-28)
+- Serial UDP status requests and comm lock (no parallel gather)
+- Device error responses logged; PV fallback from ES
+
 ### Version 0.1.0 (Initial Release)
 - Initial implementation
 - Support for all major sensors (Battery, PV, ES)
