@@ -36,12 +36,18 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API."""
         try:
-            data = await self.api.get_all_status()
-            
-            if not data:
-                raise UpdateFailed("No data received from device")
-            
-            return data
-            
+            new_data = await self.api.get_all_status()
         except Exception as err:
             raise UpdateFailed(f"Error communicating with device: {err}") from err
+
+        keys = ("battery", "pv", "es", "mode", "wifi", "ble")
+        if self.data is None:
+            if all(new_data.get(k) is None for k in keys):
+                raise UpdateFailed("No data received from device")
+            return new_data
+
+        merged = dict(self.data)
+        for key in keys:
+            if new_data.get(key) is not None:
+                merged[key] = new_data[key]
+        return merged

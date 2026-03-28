@@ -5,12 +5,55 @@ import asyncio
 import json
 import logging
 import socket
+import time
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
-# Venus-Geräte verarbeiten UDP-Anfragen praktisch seriell; parallele Sockets führen zu Timeouts.
-INTER_REQUEST_DELAY_SEC = 0.2
+# Venus-Geräte verarbeiten UDP-Anfragen seriell; Abstand + längeres Timeout reduzieren Flaps.
+INTER_REQUEST_DELAY_SEC = 0.45
+
+
+def _sync_udp_request(
+    host: str,
+    port: int,
+    payload: bytes,
+    expect_id: int,
+    total_timeout: float,
+) -> dict[str, Any] | None:
+    """Send one JSON-RPC UDP request; discard stray packets until id matches or timeout."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    deadline = time.monotonic() + total_timeout
+    try:
+        sock.sendto(payload, (host, port))
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            sock.settimeout(min(remaining, max(0.2, total_timeout * 0.25)))
+            try:
+                data, _ = sock.recvfrom(8192)
+            except socket.timeout:
+                return None
+            try:
+                response: Any = json.loads(data.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+            if not isinstance(response, dict):
+                continue
+            if response.get("id") != expect_id:
+                _LOGGER.debug(
+                    "Ignoring stray UDP response id %s (expected %s)",
+                    response.get("id"),
+                    expect_id,
+                )
+                continue
+            return response
+    except OSError as err:
+        _LOGGER.error("UDP error to %s:%s: %s", host, port, err)
+        return None
+    finally:
+        sock.close()
 
 
 class MarstekVenusAPI:
@@ -20,7 +63,7 @@ class MarstekVenusAPI:
         """Initialize the API client."""
         self.host = host
         self.port = port
-        self.timeout = 5
+        self.timeout = 12
         self._request_id = 0
         self._comm_lock = asyncio.Lock()
 
@@ -44,27 +87,28 @@ class MarstekVenusAPI:
         async with self._comm_lock:
             try:
                 loop = asyncio.get_running_loop()
-                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                sock.settimeout(self.timeout)
-
-                message = json.dumps(command).encode("utf-8")
-                await loop.run_in_executor(
-                    None, sock.sendto, message, (self.host, self.port)
+                message = json.dumps(command, separators=(",", ":")).encode("utf-8")
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: _sync_udp_request(
+                        self.host,
+                        self.port,
+                        message,
+                        req_id,
+                        self.timeout,
+                    ),
                 )
 
-                data, _ = await loop.run_in_executor(None, sock.recvfrom, 4096)
-                sock.close()
-
-                response = json.loads(data.decode("utf-8"))
-                _LOGGER.debug("Received response: %s", response)
-
-                if response.get("id") != req_id:
-                    _LOGGER.warning(
-                        "Unexpected response id %s (expected %s) for %s",
-                        response.get("id"),
-                        req_id,
+                if response is None:
+                    _LOGGER.error(
+                        "Timeout waiting for response from %s:%s (%s)",
+                        self.host,
+                        self.port,
                         method,
                     )
+                    return None
+
+                _LOGGER.debug("Received response: %s", response)
 
                 if err := response.get("error"):
                     _LOGGER.warning(
@@ -74,17 +118,6 @@ class MarstekVenusAPI:
 
                 return response.get("result")
 
-            except socket.timeout:
-                _LOGGER.error(
-                    "Timeout waiting for response from %s:%s (%s)",
-                    self.host,
-                    self.port,
-                    method,
-                )
-                return None
-            except json.JSONDecodeError as err:
-                _LOGGER.error("Invalid JSON response: %s", err)
-                return None
             except Exception as err:
                 _LOGGER.error("Error communicating with device: %s", err)
                 return None
@@ -94,8 +127,8 @@ class MarstekVenusAPI:
         return await self._send_command("Marstek.GetDevice", {"ble_mac": ble_mac})
 
     async def get_wifi_status(self) -> dict[str, Any] | None:
-        """Get WiFi status."""
-        return await self._send_command("WiFi.GetStatus", {"id": 0})
+        """Get WiFi status (API method name is Wifi.GetStatus)."""
+        return await self._send_command("Wifi.GetStatus", {"id": 0})
 
     async def get_ble_status(self) -> dict[str, Any] | None:
         """Get Bluetooth status."""
@@ -197,13 +230,12 @@ class MarstekVenusAPI:
     async def get_all_status(self) -> dict[str, Any]:
         """Get all status information from the device.
 
-        Requests run one after another. The Venus firmware does not reliably
-        answer multiple concurrent UDP queries; parallel calls caused timeouts.
+        Requests run one after another. PV.GetStatus is omitted on Venus E (timeouts
+        / Method not found); PV fields are taken from ES.GetStatus.
         """
         results: dict[str, Any] = {}
         steps: tuple[tuple[str, Any], ...] = (
             ("battery", self.get_battery_status()),
-            ("pv", self.get_pv_status()),
             ("es", self.get_es_status()),
             ("mode", self.get_es_mode()),
             ("wifi", self.get_wifi_status()),
@@ -219,13 +251,14 @@ class MarstekVenusAPI:
                 _LOGGER.error("Error fetching %s: %s", key, err)
                 results[key] = None
 
-        # Venus E liefert teils kein PV.GetStatus; PV-Leistung steckt in ES.GetStatus
         es = results.get("es")
-        if results.get("pv") is None and isinstance(es, dict):
+        if isinstance(es, dict):
             results["pv"] = {
                 "pv_power": es.get("pv_power"),
                 "pv_voltage": es.get("pv_voltage"),
                 "pv_current": es.get("pv_current"),
             }
+        else:
+            results["pv"] = None
 
         return results
