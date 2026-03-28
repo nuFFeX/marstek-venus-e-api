@@ -9,6 +9,9 @@ from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
+# Venus-Geräte verarbeiten UDP-Anfragen praktisch seriell; parallele Sockets führen zu Timeouts.
+INTER_REQUEST_DELAY_SEC = 0.2
+
 
 class MarstekVenusAPI:
     """API client for Marstek Venus devices."""
@@ -19,6 +22,7 @@ class MarstekVenusAPI:
         self.port = port
         self.timeout = 5
         self._request_id = 0
+        self._comm_lock = asyncio.Lock()
 
     def _get_next_id(self) -> int:
         """Get next request ID."""
@@ -32,39 +36,58 @@ class MarstekVenusAPI:
         if params is None:
             params = {"id": 0}
 
-        command = {"id": self._get_next_id(), "method": method, "params": params}
+        req_id = self._get_next_id()
+        command = {"id": req_id, "method": method, "params": params}
 
         _LOGGER.debug("Sending command to %s:%s: %s", self.host, self.port, command)
 
-        try:
-            loop = asyncio.get_running_loop()
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(self.timeout)
+        async with self._comm_lock:
+            try:
+                loop = asyncio.get_running_loop()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.settimeout(self.timeout)
 
-            # Send command
-            message = json.dumps(command).encode("utf-8")
-            await loop.run_in_executor(
-                None, sock.sendto, message, (self.host, self.port)
-            )
+                message = json.dumps(command).encode("utf-8")
+                await loop.run_in_executor(
+                    None, sock.sendto, message, (self.host, self.port)
+                )
 
-            # Receive response
-            data, _ = await loop.run_in_executor(None, sock.recvfrom, 4096)
-            sock.close()
+                data, _ = await loop.run_in_executor(None, sock.recvfrom, 4096)
+                sock.close()
 
-            response = json.loads(data.decode("utf-8"))
-            _LOGGER.debug("Received response: %s", response)
+                response = json.loads(data.decode("utf-8"))
+                _LOGGER.debug("Received response: %s", response)
 
-            return response.get("result")
+                if response.get("id") != req_id:
+                    _LOGGER.warning(
+                        "Unexpected response id %s (expected %s) for %s",
+                        response.get("id"),
+                        req_id,
+                        method,
+                    )
 
-        except socket.timeout:
-            _LOGGER.error("Timeout waiting for response from %s:%s", self.host, self.port)
-            return None
-        except json.JSONDecodeError as err:
-            _LOGGER.error("Invalid JSON response: %s", err)
-            return None
-        except Exception as err:
-            _LOGGER.error("Error communicating with device: %s", err)
-            return None
+                if err := response.get("error"):
+                    _LOGGER.warning(
+                        "Device reported error for %s: %s", method, err
+                    )
+                    return None
+
+                return response.get("result")
+
+            except socket.timeout:
+                _LOGGER.error(
+                    "Timeout waiting for response from %s:%s (%s)",
+                    self.host,
+                    self.port,
+                    method,
+                )
+                return None
+            except json.JSONDecodeError as err:
+                _LOGGER.error("Invalid JSON response: %s", err)
+                return None
+            except Exception as err:
+                _LOGGER.error("Error communicating with device: %s", err)
+                return None
 
     async def discover_device(self, ble_mac: str = "0") -> dict[str, Any] | None:
         """Discover Marstek device on the network."""
@@ -172,26 +195,37 @@ class MarstekVenusAPI:
             return None
 
     async def get_all_status(self) -> dict[str, Any]:
-        """Get all status information from the device."""
-        results = {}
-        
-        # Fetch all data in parallel
-        tasks = {
-            "battery": self.get_battery_status(),
-            "pv": self.get_pv_status(),
-            "es": self.get_es_status(),
-            "mode": self.get_es_mode(),
-            "wifi": self.get_wifi_status(),
-            "ble": self.get_ble_status(),
-        }
-        
-        responses = await asyncio.gather(*tasks.values(), return_exceptions=True)
-        
-        for key, response in zip(tasks.keys(), responses):
-            if isinstance(response, Exception):
-                _LOGGER.error("Error fetching %s: %s", key, response)
+        """Get all status information from the device.
+
+        Requests run one after another. The Venus firmware does not reliably
+        answer multiple concurrent UDP queries; parallel calls caused timeouts.
+        """
+        results: dict[str, Any] = {}
+        steps: tuple[tuple[str, Any], ...] = (
+            ("battery", self.get_battery_status()),
+            ("pv", self.get_pv_status()),
+            ("es", self.get_es_status()),
+            ("mode", self.get_es_mode()),
+            ("wifi", self.get_wifi_status()),
+            ("ble", self.get_ble_status()),
+        )
+
+        for index, (key, coro) in enumerate(steps):
+            if index:
+                await asyncio.sleep(INTER_REQUEST_DELAY_SEC)
+            try:
+                results[key] = await coro
+            except Exception as err:
+                _LOGGER.error("Error fetching %s: %s", key, err)
                 results[key] = None
-            else:
-                results[key] = response
-        
+
+        # Venus E liefert teils kein PV.GetStatus; PV-Leistung steckt in ES.GetStatus
+        es = results.get("es")
+        if results.get("pv") is None and isinstance(es, dict):
+            results["pv"] = {
+                "pv_power": es.get("pv_power"),
+                "pv_voltage": es.get("pv_voltage"),
+                "pv_current": es.get("pv_current"),
+            }
+
         return results
