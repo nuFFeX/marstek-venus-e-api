@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.1.3] - 2026-03-29
+
+### Fixed
+
+- UDP client: on `socket.timeout`, keep receiving until the full request deadline (previously the first recv slice ended the call early, e.g. ~3s with a 12s budget).
+- Slightly increased spacing between status polls (`INTER_REQUEST_DELAY_SEC` = 1.0) to reduce device overload.
+
+### Changed
+
+- `hacs.json`: removed unsupported `domains` key so HACS manifest validation matches the official schema.
+
 ## [0.1.2] - 2026-03-28
 
 ### Fixed

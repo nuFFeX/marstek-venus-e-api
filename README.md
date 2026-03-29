@@ -229,6 +229,9 @@ Developed based on the Marstek Device Open API documentation (REV 0.5).
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history.
 
+### Version 0.1.3 (2026-03-29)
+- UDP timeouts use the full configured wait; poll spacing 1.0s; HACS `hacs.json` schema-compliant (no `domains`)
+
 ### Version 0.1.2 (2026-03-28)
 - Correct WiFi RPC method name (`Wifi.GetStatus`) for Venus E
 - No `PV.GetStatus` in poll; PV from `ES.GetStatus`; UDP id-matching and longer timeouts
