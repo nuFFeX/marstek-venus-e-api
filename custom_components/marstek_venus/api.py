@@ -11,7 +11,7 @@ from typing import Any
 _LOGGER = logging.getLogger(__name__)
 
 # Venus-Geräte verarbeiten UDP-Anfragen seriell; Abstand + längeres Timeout reduzieren Flaps.
-INTER_REQUEST_DELAY_SEC = 0.45
+INTER_REQUEST_DELAY_SEC = 1.0
 
 
 def _sync_udp_request(
@@ -34,7 +34,7 @@ def _sync_udp_request(
             try:
                 data, _ = sock.recvfrom(8192)
             except socket.timeout:
-                return None
+                continue
             try:
                 response: Any = json.loads(data.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError):
