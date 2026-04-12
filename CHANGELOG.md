@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Operating mode select: `set_result: 0` from the device firmware (C-style success code) was interpreted as Python falsy, causing the coordinator refresh to never fire after a mode change. Fixed by checking `result is not None` instead of `result and result.get("set_result")`.
+
 ## [0.1.3] - 2026-03-29
 
 ### Fixed

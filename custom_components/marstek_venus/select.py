@@ -81,13 +81,13 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
                 _LOGGER.error("Unknown mode: %s", option)
                 return
             
-            if result and result.get("set_result"):
+            if result is not None:
                 _LOGGER.info("Successfully changed mode to: %s", option)
                 # Wait for the device to process the mode change before querying status
                 await asyncio.sleep(2.0)
                 await self.coordinator.async_request_refresh()
             else:
-                _LOGGER.error("Failed to change mode to: %s", option)
+                _LOGGER.error("Failed to change mode to: %s (no response)", option)
                 
         except Exception as err:
             _LOGGER.error("Error changing mode to %s: %s", option, err)
