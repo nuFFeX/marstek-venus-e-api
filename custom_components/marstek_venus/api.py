@@ -153,7 +153,7 @@ class MarstekVenusAPI:
     async def set_es_mode_auto(self) -> dict[str, Any] | None:
         """Set energy system to Auto mode."""
         params = {
-            "id": 1,
+            "id": 0,
             "config": {
                 "mode": "Auto",
                 "auto_cfg": {"enable": 1}
@@ -164,7 +164,7 @@ class MarstekVenusAPI:
     async def set_es_mode_ai(self) -> dict[str, Any] | None:
         """Set energy system to AI mode."""
         params = {
-            "id": 1,
+            "id": 0,
             "config": {
                 "mode": "AI",
                 "ai_cfg": {"enable": 1}
@@ -182,7 +182,7 @@ class MarstekVenusAPI:
     ) -> dict[str, Any] | None:
         """Set energy system to Manual mode."""
         params = {
-            "id": 1,
+            "id": 0,
             "config": {
                 "mode": "Manual",
                 "manual_cfg": {
@@ -202,7 +202,7 @@ class MarstekVenusAPI:
     ) -> dict[str, Any] | None:
         """Set energy system to Passive mode."""
         params = {
-            "id": 1,
+            "id": 0,
             "config": {
                 "mode": "Passive",
                 "passive_cfg": {

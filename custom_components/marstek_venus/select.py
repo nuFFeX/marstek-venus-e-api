@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import asyncio
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -81,7 +83,8 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
             
             if result and result.get("set_result"):
                 _LOGGER.info("Successfully changed mode to: %s", option)
-                # Refresh coordinator data
+                # Wait for the device to process the mode change before querying status
+                await asyncio.sleep(2.0)
                 await self.coordinator.async_request_refresh()
             else:
                 _LOGGER.error("Failed to change mode to: %s", option)

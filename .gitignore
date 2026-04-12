@@ -122,3 +122,6 @@ home-assistant_v2.db
 OZW_Log.txt
 .uuid
 .HA_VERSION
+
+# Doc
+*.pdf
