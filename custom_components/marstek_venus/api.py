@@ -213,6 +213,17 @@ class MarstekVenusAPI:
         }
         return await self._send_command("ES.SetMode", params)
 
+    async def set_es_mode_ups(self) -> dict[str, Any] | None:
+        """Set energy system to UPS mode."""
+        params = {
+            "id": 0,
+            "config": {
+                "mode": "UPS",
+                "ups_cfg": {"enable": 1}
+            }
+        }
+        return await self._send_command("ES.SetMode", params)
+
     async def set_es_mode(self, mode: str, **kwargs) -> dict[str, Any] | None:
         """Set energy system mode."""
         if mode == "Auto":

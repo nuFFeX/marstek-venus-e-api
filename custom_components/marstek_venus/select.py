@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODE_AI, MODE_AUTO, MODE_MANUAL, MODE_PASSIVE, MODES
+from .const import DOMAIN, MODE_AI, MODE_AUTO, MODE_MANUAL, MODE_PASSIVE, MODE_UPS, MODES
 from .coordinator import MarstekVenusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +77,8 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
                     week_set=127,  # All days
                     power=100,
                 )
+            elif option == MODE_UPS:
+                result = await self.coordinator.api.set_es_mode_ups()
             else:
                 _LOGGER.error("Unknown mode: %s", option)
                 return

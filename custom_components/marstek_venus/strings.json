@@ -86,7 +86,8 @@
           "Auto": "Auto",
           "AI": "AI",
           "Manual": "Manual",
-          "Passive": "Passive"
+          "Passive": "Passive",
+          "UPS": "UPS"
         }
       }
     },

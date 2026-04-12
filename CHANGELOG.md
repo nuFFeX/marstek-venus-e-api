@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- UPS mode (`"UPS"`) support: added `set_es_mode_ups()` in `api.py`, handler in `select.py`, and translations (EN: "UPS", DE: "USV") — the mode was documented in the Open API Rev 2.0 but missing from the integration.
+
 ### Fixed
 
 - Operating mode select: `set_result: 0` from the device firmware (C-style success code) was interpreted as Python falsy, causing the coordinator refresh to never fire after a mode change. Fixed by checking `result is not None` instead of `result and result.get("set_result")`.

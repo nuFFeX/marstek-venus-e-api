@@ -86,7 +86,8 @@
           "Auto": "Automatisch",
           "AI": "KI",
           "Manual": "Manuell",
-          "Passive": "Passiv"
+          "Passive": "Passiv",
+          "UPS": "USV"
         }
       }
     },
