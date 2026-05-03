@@ -37,6 +37,7 @@ class MarstekVenusChargeSwitch(CoordinatorEntity[MarstekVenusCoordinator], Switc
 
     _attr_has_entity_name = True
     _attr_translation_key = "charge_permission"
+    _attr_icon = "mdi:battery-plus-variant"
 
     def __init__(self, coordinator: MarstekVenusCoordinator) -> None:
         """Initialize the switch."""
@@ -84,6 +85,7 @@ class MarstekVenusDischargeSwitch(CoordinatorEntity[MarstekVenusCoordinator], Sw
 
     _attr_has_entity_name = True
     _attr_translation_key = "discharge_permission"
+    _attr_icon = "mdi:battery-minus-variant"
 
     def __init__(self, coordinator: MarstekVenusCoordinator) -> None:
         """Initialize the switch."""

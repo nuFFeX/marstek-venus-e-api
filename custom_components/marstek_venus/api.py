@@ -63,7 +63,8 @@ class MarstekVenusAPI:
         """Initialize the API client."""
         self.host = host
         self.port = port
-        self.timeout = 12
+        self.timeout = 6
+        self.max_attempts = 2
         self._request_id = 0
         self._comm_lock = asyncio.Lock()
 
@@ -88,23 +89,36 @@ class MarstekVenusAPI:
             try:
                 loop = asyncio.get_running_loop()
                 message = json.dumps(command, separators=(",", ":")).encode("utf-8")
-                response = await loop.run_in_executor(
-                    None,
-                    lambda: _sync_udp_request(
-                        self.host,
-                        self.port,
-                        message,
-                        req_id,
-                        self.timeout,
-                    ),
-                )
+                response: dict[str, Any] | None = None
+
+                for attempt in range(1, self.max_attempts + 1):
+                    response = await loop.run_in_executor(
+                        None,
+                        lambda: _sync_udp_request(
+                            self.host,
+                            self.port,
+                            message,
+                            req_id,
+                            self.timeout,
+                        ),
+                    )
+                    if response is not None:
+                        if attempt > 1:
+                            _LOGGER.debug(
+                                "Recovered %s on attempt %s/%s",
+                                method, attempt, self.max_attempts,
+                            )
+                        break
+                    if attempt < self.max_attempts:
+                        _LOGGER.debug(
+                            "Retrying %s on %s:%s (attempt %s/%s)",
+                            method, self.host, self.port, attempt + 1, self.max_attempts,
+                        )
 
                 if response is None:
-                    _LOGGER.error(
-                        "Timeout waiting for response from %s:%s (%s)",
-                        self.host,
-                        self.port,
-                        method,
+                    _LOGGER.warning(
+                        "Timeout waiting for response from %s:%s (%s) after %s attempts",
+                        self.host, self.port, method, self.max_attempts,
                     )
                     return None
 
@@ -133,6 +147,10 @@ class MarstekVenusAPI:
     async def get_ble_status(self) -> dict[str, Any] | None:
         """Get Bluetooth status."""
         return await self._send_command("BLE.GetStatus", {"id": 0})
+
+    async def get_em_status(self) -> dict[str, Any] | None:
+        """Get Energy Meter / CT status (ct_state, a_power, b_power, c_power, total_power)."""
+        return await self._send_command("EM.GetStatus", {"id": 0})
 
     async def get_battery_status(self) -> dict[str, Any] | None:
         """Get battery status."""
@@ -238,20 +256,33 @@ class MarstekVenusAPI:
             _LOGGER.error("Unknown mode: %s", mode)
             return None
 
-    async def get_all_status(self) -> dict[str, Any]:
-        """Get all status information from the device.
+    async def get_all_status(
+        self,
+        include_slow: bool = False,
+        include_mode: bool = False,
+    ) -> dict[str, Any]:
+        """Get status information from the device.
+
+        Tiered polling:
+        - Fast tier (always): Bat.GetStatus, ES.GetStatus
+        - Slow tier (include_slow=True): Wifi.GetStatus, BLE.GetStatus, ES.GetMode
+        - Mode-on-demand (include_mode=True): ES.GetMode regardless of slow tier,
+          used right after a SetMode call to refresh the cached mode quickly.
 
         Requests run one after another. PV.GetStatus is omitted on Venus E (timeouts
         / Method not found); PV fields are taken from ES.GetStatus.
         """
         results: dict[str, Any] = {}
-        steps: tuple[tuple[str, Any], ...] = (
+        steps: list[tuple[str, Any]] = [
             ("battery", self.get_battery_status()),
             ("es", self.get_es_status()),
-            ("mode", self.get_es_mode()),
-            ("wifi", self.get_wifi_status()),
-            ("ble", self.get_ble_status()),
-        )
+        ]
+        if include_slow or include_mode:
+            steps.append(("mode", self.get_es_mode()))
+        if include_slow:
+            steps.append(("wifi", self.get_wifi_status()))
+            steps.append(("ble", self.get_ble_status()))
+            steps.append(("em", self.get_em_status()))
 
         for index, (key, coro) in enumerate(steps):
             if index:

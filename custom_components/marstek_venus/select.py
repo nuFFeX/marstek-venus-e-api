@@ -34,6 +34,7 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
 
     _attr_has_entity_name = True
     _attr_translation_key = "operating_mode"
+    _attr_icon = "mdi:cog-play"
     _attr_options = MODES
 
     def __init__(self, coordinator: MarstekVenusCoordinator) -> None:
@@ -87,6 +88,7 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
                 _LOGGER.info("Successfully changed mode to: %s", option)
                 # Wait for the device to process the mode change before querying status
                 await asyncio.sleep(2.0)
+                self.coordinator.request_mode_refresh()
                 await self.coordinator.async_request_refresh()
             else:
                 _LOGGER.error("Failed to change mode to: %s (no response)", option)

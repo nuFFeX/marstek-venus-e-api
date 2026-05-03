@@ -12,6 +12,13 @@ CONF_BLE_MAC = "ble_mac"
 DEFAULT_PORT = 30000
 DEFAULT_SCAN_INTERVAL = 30
 
+# Tiered polling: slow-tier methods only run every Nth update cycle.
+SLOW_TIER_EVERY = 10
+
+# Adaptive polling: on consecutive update failures the interval is multiplied
+# along this ladder (seconds) before falling back to DEFAULT_SCAN_INTERVAL on success.
+ADAPTIVE_INTERVAL_LADDER = (30, 60, 120, 300)
+
 # Device modes
 MODE_AUTO = "Auto"
 MODE_AI = "AI"
@@ -30,6 +37,11 @@ METHOD_PV_STATUS = "PV.GetStatus"
 METHOD_ES_STATUS = "ES.GetStatus"
 METHOD_ES_GET_MODE = "ES.GetMode"
 METHOD_ES_SET_MODE = "ES.SetMode"
+METHOD_EM_STATUS = "EM.GetStatus"
+
+# Energy Meter / CT
+CT_STATE_DISCONNECTED = 0
+CT_STATE_CONNECTED = 1
 
 # Attributes
 ATTR_DEVICE = "device"
