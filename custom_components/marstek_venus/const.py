@@ -10,14 +10,14 @@ CONF_BLE_MAC = "ble_mac"
 
 # Default values
 DEFAULT_PORT = 30000
-DEFAULT_SCAN_INTERVAL = 30
+DEFAULT_SCAN_INTERVAL = 60
 
 # Tiered polling: slow-tier methods only run every Nth update cycle.
 SLOW_TIER_EVERY = 10
 
 # Adaptive polling: on consecutive update failures the interval is multiplied
 # along this ladder (seconds) before falling back to DEFAULT_SCAN_INTERVAL on success.
-ADAPTIVE_INTERVAL_LADDER = (30, 60, 120, 300)
+ADAPTIVE_INTERVAL_LADDER = (60, 120, 300, 600)
 
 # Device modes
 MODE_AUTO = "Auto"
