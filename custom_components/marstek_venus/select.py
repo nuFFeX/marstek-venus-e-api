@@ -4,8 +4,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import asyncio
-
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -97,9 +95,11 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
 
             if result is not None:
                 _LOGGER.info("Successfully changed mode to: %s", option)
-                await asyncio.sleep(2.0)
+                # Flag the next scheduled poll to include ES.GetMode.
+                # Do NOT trigger an extra immediate refresh — the device needs
+                # time to process the SetMode command, and a burst of requests
+                # right after a write is the primary cause of device resets.
                 self.coordinator.request_mode_refresh()
-                await self.coordinator.async_request_refresh()
             else:
                 _LOGGER.error("Failed to change mode to: %s (no response)", option)
 

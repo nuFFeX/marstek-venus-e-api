@@ -11,7 +11,7 @@ from typing import Any
 _LOGGER = logging.getLogger(__name__)
 
 # Venus-Geräte verarbeiten UDP-Anfragen seriell; Abstand + längeres Timeout reduzieren Flaps.
-INTER_REQUEST_DELAY_SEC = 1.0
+INTER_REQUEST_DELAY_SEC = 2.0
 
 
 def _sync_udp_request(
@@ -73,10 +73,10 @@ class MarstekVenusAPI:
         self._request_id = (self._request_id % 65535) + 1
         return self._request_id
 
-    async def _send_command(
+    async def _send_command_unsafe(
         self, method: str, params: dict[str, Any] | None = None
     ) -> dict[str, Any] | None:
-        """Send a command to the device and return the response."""
+        """Send a command WITHOUT acquiring _comm_lock. Caller must hold _comm_lock."""
         if params is None:
             params = {"id": 0}
 
@@ -85,56 +85,62 @@ class MarstekVenusAPI:
 
         _LOGGER.debug("Sending command to %s:%s: %s", self.host, self.port, command)
 
-        async with self._comm_lock:
-            try:
-                loop = asyncio.get_running_loop()
-                message = json.dumps(command, separators=(",", ":")).encode("utf-8")
-                response: dict[str, Any] | None = None
+        try:
+            loop = asyncio.get_running_loop()
+            message = json.dumps(command, separators=(",", ":")).encode("utf-8")
+            response: dict[str, Any] | None = None
 
-                for attempt in range(1, self.max_attempts + 1):
-                    response = await loop.run_in_executor(
-                        None,
-                        lambda: _sync_udp_request(
-                            self.host,
-                            self.port,
-                            message,
-                            req_id,
-                            self.timeout,
-                        ),
-                    )
-                    if response is not None:
-                        if attempt > 1:
-                            _LOGGER.debug(
-                                "Recovered %s on attempt %s/%s",
-                                method, attempt, self.max_attempts,
-                            )
-                        break
-                    if attempt < self.max_attempts:
+            for attempt in range(1, self.max_attempts + 1):
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: _sync_udp_request(
+                        self.host,
+                        self.port,
+                        message,
+                        req_id,
+                        self.timeout,
+                    ),
+                )
+                if response is not None:
+                    if attempt > 1:
                         _LOGGER.debug(
-                            "Retrying %s on %s:%s (attempt %s/%s)",
-                            method, self.host, self.port, attempt + 1, self.max_attempts,
+                            "Recovered %s on attempt %s/%s",
+                            method, attempt, self.max_attempts,
                         )
-
-                if response is None:
-                    _LOGGER.warning(
-                        "Timeout waiting for response from %s:%s (%s) after %s attempts",
-                        self.host, self.port, method, self.max_attempts,
+                    break
+                if attempt < self.max_attempts:
+                    _LOGGER.debug(
+                        "Retrying %s on %s:%s (attempt %s/%s)",
+                        method, self.host, self.port, attempt + 1, self.max_attempts,
                     )
-                    return None
 
-                _LOGGER.debug("Received response: %s", response)
-
-                if err := response.get("error"):
-                    _LOGGER.warning(
-                        "Device reported error for %s: %s", method, err
-                    )
-                    return None
-
-                return response.get("result")
-
-            except Exception as err:
-                _LOGGER.error("Error communicating with device: %s", err)
+            if response is None:
+                _LOGGER.warning(
+                    "Timeout waiting for response from %s:%s (%s) after %s attempts",
+                    self.host, self.port, method, self.max_attempts,
+                )
                 return None
+
+            _LOGGER.debug("Received response: %s", response)
+
+            if err := response.get("error"):
+                _LOGGER.warning(
+                    "Device reported error for %s: %s", method, err
+                )
+                return None
+
+            return response.get("result")
+
+        except Exception as err:
+            _LOGGER.error("Error communicating with device: %s", err)
+            return None
+
+    async def _send_command(
+        self, method: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """Send a command to the device, holding _comm_lock for the full operation."""
+        async with self._comm_lock:
+            return await self._send_command_unsafe(method, params)
 
     async def discover_device(self, ble_mac: str = "0") -> dict[str, Any] | None:
         """Discover Marstek device on the network."""
@@ -265,33 +271,37 @@ class MarstekVenusAPI:
 
         Tiered polling:
         - Fast tier (always): Bat.GetStatus, ES.GetStatus
-        - Slow tier (include_slow=True): Wifi.GetStatus, BLE.GetStatus, ES.GetMode
-        - Mode-on-demand (include_mode=True): ES.GetMode regardless of slow tier,
-          used right after a SetMode call to refresh the cached mode quickly.
+        - Slow tier (include_slow=True): Wifi.GetStatus, BLE.GetStatus, EM.GetStatus
+        - Mode-on-demand (include_mode=True): ES.GetMode regardless of slow tier
 
-        Requests run one after another. PV.GetStatus is omitted on Venus E (timeouts
-        / Method not found); PV fields are taken from ES.GetStatus.
+        Holds _comm_lock for the entire poll so a concurrent SetMode cannot be
+        interleaved between individual requests. Uses _send_command_unsafe
+        internally to avoid lock re-entry (asyncio.Lock is not reentrant).
+
+        PV.GetStatus is omitted on Venus E (timeouts / Method not found);
+        PV fields are derived from ES.GetStatus.
         """
-        results: dict[str, Any] = {}
-        steps: list[tuple[str, Any]] = [
-            ("battery", self.get_battery_status()),
-            ("es", self.get_es_status()),
+        steps: list[tuple[str, str, dict]] = [
+            ("battery", "Bat.GetStatus", {"id": 0}),
+            ("es", "ES.GetStatus", {"id": 0}),
         ]
         if include_slow or include_mode:
-            steps.append(("mode", self.get_es_mode()))
+            steps.append(("mode", "ES.GetMode", {"id": 0}))
         if include_slow:
-            steps.append(("wifi", self.get_wifi_status()))
-            steps.append(("ble", self.get_ble_status()))
-            steps.append(("em", self.get_em_status()))
+            steps.append(("wifi", "Wifi.GetStatus", {"id": 0}))
+            steps.append(("ble", "BLE.GetStatus", {"id": 0}))
+            steps.append(("em", "EM.GetStatus", {"id": 0}))
 
-        for index, (key, coro) in enumerate(steps):
-            if index:
-                await asyncio.sleep(INTER_REQUEST_DELAY_SEC)
-            try:
-                results[key] = await coro
-            except Exception as err:
-                _LOGGER.error("Error fetching %s: %s", key, err)
-                results[key] = None
+        results: dict[str, Any] = {}
+        async with self._comm_lock:
+            for index, (key, method, params) in enumerate(steps):
+                if index:
+                    await asyncio.sleep(INTER_REQUEST_DELAY_SEC)
+                try:
+                    results[key] = await self._send_command_unsafe(method, params)
+                except Exception as err:
+                    _LOGGER.error("Error fetching %s: %s", key, err)
+                    results[key] = None
 
         es = results.get("es")
         if isinstance(es, dict):

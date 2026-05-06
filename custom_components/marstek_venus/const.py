@@ -10,7 +10,7 @@ CONF_BLE_MAC = "ble_mac"
 
 # Default values
 DEFAULT_PORT = 30000
-DEFAULT_SCAN_INTERVAL = 60
+DEFAULT_SCAN_INTERVAL = 120
 
 # Tiered polling: slow-tier methods only run every Nth update cycle.
 SLOW_TIER_EVERY = 10
