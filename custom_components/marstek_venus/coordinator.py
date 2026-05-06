@@ -39,6 +39,8 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._tick = 0
         self._force_mode_refresh = False
         self._consecutive_failures = 0
+        self._last_total_charge: float | None = None
+        self._last_total_discharge: float | None = None
 
         super().__init__(
             hass,
@@ -115,7 +117,39 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             merged["pv"] = _derive_pv(new_data["es"])
 
         self._apply_adaptive_interval(success=fast_ok)
+        self._detect_device_reset(merged)
         return merged
+
+
+    def _detect_device_reset(self, data: dict[str, Any]) -> None:
+        """Warn when cumulative energy counters jump backwards — sign of a device reboot."""
+        es = data.get("es")
+        if not isinstance(es, dict):
+            return
+        charge = es.get("total_charge_energy")
+        discharge = es.get("total_discharge_energy")
+
+        if charge is not None and self._last_total_charge is not None:
+            if charge < self._last_total_charge:
+                _LOGGER.warning(
+                    "Device reset detected: total_charge_energy dropped from %.1f to %.1f — "
+                    "the device may have rebooted or been factory-reset.",
+                    self._last_total_charge,
+                    charge,
+                )
+        if discharge is not None and self._last_total_discharge is not None:
+            if discharge < self._last_total_discharge:
+                _LOGGER.warning(
+                    "Device reset detected: total_discharge_energy dropped from %.1f to %.1f — "
+                    "the device may have rebooted or been factory-reset.",
+                    self._last_total_discharge,
+                    discharge,
+                )
+
+        if charge is not None:
+            self._last_total_charge = charge
+        if discharge is not None:
+            self._last_total_discharge = discharge
 
 
 def _derive_pv(es: Any) -> dict[str, Any] | None:

@@ -69,8 +69,8 @@ class MarstekVenusAPI:
         self._comm_lock = asyncio.Lock()
 
     def _get_next_id(self) -> int:
-        """Get next request ID."""
-        self._request_id += 1
+        """Get next request ID, wrapping at 65535 to avoid overflow."""
+        self._request_id = (self._request_id % 65535) + 1
         return self._request_id
 
     async def _send_command(

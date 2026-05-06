@@ -57,41 +57,51 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
                 return mode_data.get("mode")
         return None
 
+    def _current_mode_cfg(self, cfg_key: str) -> dict:
+        """Return the current sub-config block from the last known device mode data."""
+        try:
+            mode_data = self.coordinator.data.get("mode") or {}
+            return mode_data.get(cfg_key) or {}
+        except Exception:
+            return {}
+
     async def async_select_option(self, option: str) -> None:
         """Change the selected mode."""
         _LOGGER.debug("Changing mode to: %s", option)
-        
+
         try:
             if option == MODE_AUTO:
                 result = await self.coordinator.api.set_es_mode_auto()
             elif option == MODE_AI:
                 result = await self.coordinator.api.set_es_mode_ai()
             elif option == MODE_PASSIVE:
-                # Default passive mode with 100W for 5 minutes
-                result = await self.coordinator.api.set_es_mode_passive(power=100, cd_time=300)
+                cfg = self._current_mode_cfg("passive_cfg")
+                result = await self.coordinator.api.set_es_mode_passive(
+                    power=cfg.get("power", 100),
+                    cd_time=cfg.get("cd_time", 300),
+                )
             elif option == MODE_MANUAL:
-                # Default manual mode - can be extended with service calls
+                cfg = self._current_mode_cfg("manual_cfg")
                 result = await self.coordinator.api.set_es_mode_manual(
-                    time_num=0,
-                    start_time="00:00",
-                    end_time="23:59",
-                    week_set=127,  # All days
-                    power=100,
+                    time_num=cfg.get("time_num", 0),
+                    start_time=cfg.get("start_time", "00:00"),
+                    end_time=cfg.get("end_time", "23:59"),
+                    week_set=cfg.get("week_set", 127),
+                    power=cfg.get("power", 100),
                 )
             elif option == MODE_UPS:
                 result = await self.coordinator.api.set_es_mode_ups()
             else:
                 _LOGGER.error("Unknown mode: %s", option)
                 return
-            
+
             if result is not None:
                 _LOGGER.info("Successfully changed mode to: %s", option)
-                # Wait for the device to process the mode change before querying status
                 await asyncio.sleep(2.0)
                 self.coordinator.request_mode_refresh()
                 await self.coordinator.async_request_refresh()
             else:
                 _LOGGER.error("Failed to change mode to: %s (no response)", option)
-                
+
         except Exception as err:
             _LOGGER.error("Error changing mode to %s: %s", option, err)
