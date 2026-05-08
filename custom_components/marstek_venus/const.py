@@ -27,6 +27,15 @@ REPAIR_FAILURE_THRESHOLD = 5
 # calls / entity-update triggers cannot burst the device.
 REFRESH_DEBOUNCE_COOLDOWN = 2.0
 
+# Idle backoff: when the battery sits at full SOC with ~no power flow the
+# device's idle/standby firmware path appears especially fragile to UDP
+# polling — observed resets correlate with this state. Multiply the poll
+# interval by IDLE_FACTOR while the battery is idle to shrink the trigger
+# window. Detection thresholds are intentionally loose.
+IDLE_SOC_THRESHOLD = 99
+IDLE_POWER_THRESHOLD_W = 50
+IDLE_INTERVAL_FACTOR = 3
+
 # Device modes
 MODE_AUTO = "Auto"
 MODE_AI = "AI"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -18,6 +19,9 @@ from .const import (
     CONF_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    IDLE_INTERVAL_FACTOR,
+    IDLE_POWER_THRESHOLD_W,
+    IDLE_SOC_THRESHOLD,
     REFRESH_DEBOUNCE_COOLDOWN,
     REPAIR_FAILURE_THRESHOLD,
     SLOW_TIER_EVERY,
@@ -48,6 +52,10 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._consecutive_failures = 0
         self._last_total_charge: float | None = None
         self._last_total_discharge: float | None = None
+        self._is_idle = False
+        self._last_success_method: str | None = None
+        self._last_success_at: float | None = None
+        self._last_battery_snapshot: str | None = None
 
         super().__init__(
             hass,
@@ -70,30 +78,42 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Mark ES.GetMode for inclusion on the next refresh (used after SetMode)."""
         self._force_mode_refresh = True
 
+    def _base_interval(self) -> int:
+        """Base poll interval honoring idle-state backoff."""
+        if self._is_idle:
+            return DEFAULT_SCAN_INTERVAL * IDLE_INTERVAL_FACTOR
+        return DEFAULT_SCAN_INTERVAL
+
     def _apply_adaptive_interval(self, success: bool) -> None:
         """SolaX-style slowdown: any failure → SLOWDOWN_FACTOR× interval; recovery → 1×.
 
-        Also raises/clears a Repair issue once consecutive failures cross
-        REPAIR_FAILURE_THRESHOLD so the user gets a UI signal instead of
-        log-spam every cycle.
+        Idle-state backoff is layered on top: when the battery is idle the
+        base interval is already multiplied by IDLE_INTERVAL_FACTOR.
         """
         if success:
             if self._consecutive_failures:
                 _LOGGER.debug(
-                    "Recovered after %s failure(s) — resetting poll interval to %ss",
+                    "Recovered after %s failure(s) — resetting poll interval",
                     self._consecutive_failures,
-                    DEFAULT_SCAN_INTERVAL,
                 )
             self._consecutive_failures = 0
-            target = DEFAULT_SCAN_INTERVAL
+            target = self._base_interval()
             ir.async_delete_issue(self.hass, DOMAIN, _REPAIR_ISSUE_ID)
         else:
             self._consecutive_failures += 1
-            target = DEFAULT_SCAN_INTERVAL * SLOWDOWN_FACTOR
+            target = self._base_interval() * SLOWDOWN_FACTOR
+            gap = (
+                f"{time.monotonic() - self._last_success_at:.0f}s"
+                if self._last_success_at is not None
+                else "n/a"
+            )
             _LOGGER.warning(
-                "Update failure #%s — slowing poll interval to %ss",
+                "Update failure #%s — slowing poll interval to %ss; "
+                "last good response %s ago; last snapshot: %s",
                 self._consecutive_failures,
                 target,
+                gap,
+                self._last_battery_snapshot or "n/a",
             )
             if self._consecutive_failures == REPAIR_FAILURE_THRESHOLD:
                 ir.async_create_issue(
@@ -108,6 +128,44 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         new_interval = timedelta(seconds=target)
         if self.update_interval != new_interval:
             self.update_interval = new_interval
+
+    def _update_idle_state(self, data: dict[str, Any]) -> None:
+        """Refresh idle flag from latest battery/ES data and adjust interval if it flipped."""
+        battery = data.get("battery") if isinstance(data, dict) else None
+        es = data.get("es") if isinstance(data, dict) else None
+
+        soc = None
+        if isinstance(battery, dict):
+            soc = battery.get("soc")
+        if soc is None and isinstance(es, dict):
+            soc = es.get("bat_soc")
+
+        bat_power = es.get("bat_power") if isinstance(es, dict) else None
+
+        if soc is None or bat_power is None:
+            return
+
+        try:
+            is_idle = (
+                soc >= IDLE_SOC_THRESHOLD and abs(bat_power) < IDLE_POWER_THRESHOLD_W
+            )
+        except TypeError:
+            return
+
+        if is_idle != self._is_idle:
+            _LOGGER.info(
+                "Battery idle state changed: %s -> %s (soc=%s, bat_power=%s) — poll interval now %ss",
+                self._is_idle,
+                is_idle,
+                soc,
+                bat_power,
+                (DEFAULT_SCAN_INTERVAL * IDLE_INTERVAL_FACTOR)
+                if is_idle
+                else DEFAULT_SCAN_INTERVAL,
+            )
+            self._is_idle = is_idle
+            # Re-apply interval with the new base; preserves any active slowdown.
+            self._apply_adaptive_interval(success=self._consecutive_failures == 0)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API."""
@@ -161,9 +219,25 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if new_data.get("es") is not None:
             merged["pv"] = _derive_pv(new_data["es"])
 
+        if fast_ok:
+            self._record_success_snapshot(merged)
         self._apply_adaptive_interval(success=fast_ok)
+        self._update_idle_state(merged)
         self._detect_device_reset(merged)
         return merged
+
+    def _record_success_snapshot(self, data: dict[str, Any]) -> None:
+        """Track the last good response — used to enrich timeout diagnostics."""
+        self._last_success_at = time.monotonic()
+        battery = data.get("battery") or {}
+        es = data.get("es") or {}
+        soc = battery.get("soc")
+        if soc is None:
+            soc = es.get("bat_soc")
+        self._last_battery_snapshot = (
+            f"soc={soc} bat_power={es.get('bat_power')} "
+            f"ongrid={es.get('ongrid_power')} mode={(data.get('mode') or {}).get('mode')}"
+        )
 
     def _detect_device_reset(self, data: dict[str, Any]) -> None:
         """Warn when cumulative energy counters jump backwards — sign of a device reboot."""
