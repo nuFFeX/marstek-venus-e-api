@@ -15,9 +15,17 @@ DEFAULT_SCAN_INTERVAL = 120
 # Tiered polling: slow-tier methods only run every Nth update cycle.
 SLOW_TIER_EVERY = 10
 
-# Adaptive polling: on consecutive update failures the interval is multiplied
-# along this ladder (seconds) before falling back to DEFAULT_SCAN_INTERVAL on success.
-ADAPTIVE_INTERVAL_LADDER = (60, 120, 300, 600)
+# Adaptive polling: on any failed update the interval is multiplied by this
+# factor (SolaX-style "slowdown"). Reset to 1× on the first successful poll.
+SLOWDOWN_FACTOR = 5
+
+# After this many consecutive failures we surface a Repair issue instead of
+# spamming the log on every cycle.
+REPAIR_FAILURE_THRESHOLD = 5
+
+# Debounce cooldown (s) for coordinator refresh requests so rapid service
+# calls / entity-update triggers cannot burst the device.
+REFRESH_DEBOUNCE_COOLDOWN = 2.0
 
 # Device modes
 MODE_AUTO = "Auto"

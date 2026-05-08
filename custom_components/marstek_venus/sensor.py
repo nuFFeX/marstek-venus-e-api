@@ -27,6 +27,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import MarstekVenusCoordinator
 
+PARALLEL_UPDATES = 1
+
 
 @dataclass
 class MarstekVenusSensorEntityDescription(SensorEntityDescription):

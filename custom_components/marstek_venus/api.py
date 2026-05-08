@@ -14,6 +14,14 @@ _LOGGER = logging.getLogger(__name__)
 INTER_REQUEST_DELAY_SEC = 2.0
 
 
+class DeviceBusy(Exception):
+    """Raised when a poll is skipped because another request is in flight.
+
+    The coordinator treats this as a benign skip, not a failure — it should
+    not advance the failure counter or trigger a slowdown.
+    """
+
+
 def _sync_udp_request(
     host: str,
     port: int,
@@ -64,7 +72,10 @@ class MarstekVenusAPI:
         self.host = host
         self.port = port
         self.timeout = 6
-        self.max_attempts = 2
+        # SolaX-Erfahrung: 1 Versuch pro Request — Retries belasten ein
+        # bereits gestresstes Gerät zusätzlich. Verlorene Polls werden
+        # vom nächsten Tier-Cycle abgefangen.
+        self.max_attempts = 1
         self._request_id = 0
         self._comm_lock = asyncio.Lock()
 
@@ -293,6 +304,13 @@ class MarstekVenusAPI:
         if include_slow:
             steps.append(("wifi", "Wifi.GetStatus", {"id": 0}))
             steps.append(("ble", "BLE.GetStatus", {"id": 0}))
+
+        # Drop-on-collision: ist der Lock bereits gehalten (z.B. SetMode oder
+        # ein vorheriger Poll dauert noch), überspringen wir diesen Cycle
+        # statt zu queuen. Verhindert Backlog wenn das Gerät >SCAN_INTERVAL
+        # zum Antworten braucht.
+        if self._comm_lock.locked():
+            raise DeviceBusy("Previous request still in flight; skipping poll")
 
         results: dict[str, Any] = {}
         async with self._comm_lock:

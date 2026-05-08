@@ -7,17 +7,23 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import MarstekVenusAPI
+from .api import DeviceBusy, MarstekVenusAPI
 from .const import (
-    ADAPTIVE_INTERVAL_LADDER,
     CONF_HOST,
     CONF_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    REFRESH_DEBOUNCE_COOLDOWN,
+    REPAIR_FAILURE_THRESHOLD,
     SLOW_TIER_EVERY,
+    SLOWDOWN_FACTOR,
 )
+
+_REPAIR_ISSUE_ID = "device_unreachable"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +53,16 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            # Don't push entity state if data is byte-identical to last cycle.
+            always_update=False,
+            # Coalesce rapid async_request_refresh() calls (e.g. from service
+            # invocations or HA's "Update entity" button) into one request.
+            request_refresh_debouncer=Debouncer(
+                hass,
+                _LOGGER,
+                cooldown=REFRESH_DEBOUNCE_COOLDOWN,
+                immediate=False,
+            ),
         )
 
     def request_mode_refresh(self) -> None:
@@ -54,20 +70,37 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._force_mode_refresh = True
 
     def _apply_adaptive_interval(self, success: bool) -> None:
-        """Backoff on consecutive failures, reset to default on success."""
+        """SolaX-style slowdown: any failure → SLOWDOWN_FACTOR× interval; recovery → 1×.
+
+        Also raises/clears a Repair issue once consecutive failures cross
+        REPAIR_FAILURE_THRESHOLD so the user gets a UI signal instead of
+        log-spam every cycle.
+        """
         if success:
             if self._consecutive_failures:
-                _LOGGER.debug("Resetting poll interval to %ss", DEFAULT_SCAN_INTERVAL)
+                _LOGGER.debug(
+                    "Recovered after %s failure(s) — resetting poll interval to %ss",
+                    self._consecutive_failures, DEFAULT_SCAN_INTERVAL,
+                )
             self._consecutive_failures = 0
             target = DEFAULT_SCAN_INTERVAL
+            ir.async_delete_issue(self.hass, DOMAIN, _REPAIR_ISSUE_ID)
         else:
             self._consecutive_failures += 1
-            idx = min(self._consecutive_failures - 1, len(ADAPTIVE_INTERVAL_LADDER) - 1)
-            target = ADAPTIVE_INTERVAL_LADDER[idx]
+            target = DEFAULT_SCAN_INTERVAL * SLOWDOWN_FACTOR
             _LOGGER.warning(
-                "Update failure #%s — backing off poll interval to %ss",
+                "Update failure #%s — slowing poll interval to %ss",
                 self._consecutive_failures, target,
             )
+            if self._consecutive_failures == REPAIR_FAILURE_THRESHOLD:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    _REPAIR_ISSUE_ID,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key=_REPAIR_ISSUE_ID,
+                )
 
         new_interval = timedelta(seconds=target)
         if self.update_interval != new_interval:
@@ -85,6 +118,15 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 include_slow=include_slow,
                 include_mode=include_mode,
             )
+        except DeviceBusy:
+            # Lock collision — a previous request is still in flight (e.g.
+            # SetMode write or a slow poll). Skip this cycle silently and
+            # return whatever we already have. Do NOT advance the failure
+            # counter; the device is responsive, just busy.
+            _LOGGER.debug("Skipping poll — previous request still in flight")
+            if self.data is None:
+                raise UpdateFailed("Device busy on first poll") from None
+            return self.data
         except Exception as err:
             self._apply_adaptive_interval(success=False)
             raise UpdateFailed(f"Error communicating with device: {err}") from err
