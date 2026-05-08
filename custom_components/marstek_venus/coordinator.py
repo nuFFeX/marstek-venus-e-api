@@ -22,7 +22,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 FAST_KEYS = ("battery", "es")
-SLOW_KEYS = ("wifi", "ble", "em")
+SLOW_KEYS = ("wifi", "ble")
 MODE_KEY = "mode"
 
 

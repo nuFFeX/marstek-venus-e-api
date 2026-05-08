@@ -271,8 +271,11 @@ class MarstekVenusAPI:
 
         Tiered polling:
         - Fast tier (always): Bat.GetStatus, ES.GetStatus
-        - Slow tier (include_slow=True): Wifi.GetStatus, BLE.GetStatus, EM.GetStatus
+        - Slow tier (include_slow=True): Wifi.GetStatus, BLE.GetStatus
         - Mode-on-demand (include_mode=True): ES.GetMode regardless of slow tier
+
+        EM.GetStatus is currently disabled — it correlates with device resets and
+        is being isolated as a hypothesis. Re-enable once root cause is confirmed.
 
         Holds _comm_lock for the entire poll so a concurrent SetMode cannot be
         interleaved between individual requests. Uses _send_command_unsafe
@@ -290,7 +293,6 @@ class MarstekVenusAPI:
         if include_slow:
             steps.append(("wifi", "Wifi.GetStatus", {"id": 0}))
             steps.append(("ble", "BLE.GetStatus", {"id": 0}))
-            steps.append(("em", "EM.GetStatus", {"id": 0}))
 
         results: dict[str, Any] = {}
         async with self._comm_lock:
