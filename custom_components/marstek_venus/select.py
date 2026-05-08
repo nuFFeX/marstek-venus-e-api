@@ -1,8 +1,8 @@
 """Support for Marstek Venus select entities."""
+
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -10,7 +10,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODE_AI, MODE_AUTO, MODE_MANUAL, MODE_PASSIVE, MODE_UPS, MODES
+from .const import (
+    DOMAIN,
+    MODE_AI,
+    MODE_AUTO,
+    MODE_MANUAL,
+    MODE_PASSIVE,
+    MODE_UPS,
+    MODES,
+)
 from .coordinator import MarstekVenusCoordinator
 
 _LOGGER = logging.getLogger(__name__)

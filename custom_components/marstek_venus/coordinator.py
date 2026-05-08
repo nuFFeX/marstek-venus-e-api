@@ -1,8 +1,9 @@
 """Data coordinator for Marstek Venus integration."""
+
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -80,7 +81,8 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if self._consecutive_failures:
                 _LOGGER.debug(
                     "Recovered after %s failure(s) — resetting poll interval to %ss",
-                    self._consecutive_failures, DEFAULT_SCAN_INTERVAL,
+                    self._consecutive_failures,
+                    DEFAULT_SCAN_INTERVAL,
                 )
             self._consecutive_failures = 0
             target = DEFAULT_SCAN_INTERVAL
@@ -90,7 +92,8 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             target = DEFAULT_SCAN_INTERVAL * SLOWDOWN_FACTOR
             _LOGGER.warning(
                 "Update failure #%s — slowing poll interval to %ss",
-                self._consecutive_failures, target,
+                self._consecutive_failures,
+                target,
             )
             if self._consecutive_failures == REPAIR_FAILURE_THRESHOLD:
                 ir.async_create_issue(
@@ -161,7 +164,6 @@ class MarstekVenusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._apply_adaptive_interval(success=fast_ok)
         self._detect_device_reset(merged)
         return merged
-
 
     def _detect_device_reset(self, data: dict[str, Any]) -> None:
         """Warn when cumulative energy counters jump backwards — sign of a device reboot."""

@@ -1,4 +1,5 @@
 """API client for Marstek Venus devices."""
+
 from __future__ import annotations
 
 import asyncio
@@ -41,7 +42,7 @@ def _sync_udp_request(
             sock.settimeout(min(remaining, max(0.2, total_timeout * 0.25)))
             try:
                 data, _ = sock.recvfrom(8192)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             try:
                 response: Any = json.loads(data.decode("utf-8"))
@@ -116,28 +117,35 @@ class MarstekVenusAPI:
                     if attempt > 1:
                         _LOGGER.debug(
                             "Recovered %s on attempt %s/%s",
-                            method, attempt, self.max_attempts,
+                            method,
+                            attempt,
+                            self.max_attempts,
                         )
                     break
                 if attempt < self.max_attempts:
                     _LOGGER.debug(
                         "Retrying %s on %s:%s (attempt %s/%s)",
-                        method, self.host, self.port, attempt + 1, self.max_attempts,
+                        method,
+                        self.host,
+                        self.port,
+                        attempt + 1,
+                        self.max_attempts,
                     )
 
             if response is None:
                 _LOGGER.warning(
                     "Timeout waiting for response from %s:%s (%s) after %s attempts",
-                    self.host, self.port, method, self.max_attempts,
+                    self.host,
+                    self.port,
+                    method,
+                    self.max_attempts,
                 )
                 return None
 
             _LOGGER.debug("Received response: %s", response)
 
             if err := response.get("error"):
-                _LOGGER.warning(
-                    "Device reported error for %s: %s", method, err
-                )
+                _LOGGER.warning("Device reported error for %s: %s", method, err)
                 return None
 
             return response.get("result")
@@ -187,24 +195,12 @@ class MarstekVenusAPI:
 
     async def set_es_mode_auto(self) -> dict[str, Any] | None:
         """Set energy system to Auto mode."""
-        params = {
-            "id": 0,
-            "config": {
-                "mode": "Auto",
-                "auto_cfg": {"enable": 1}
-            }
-        }
+        params = {"id": 0, "config": {"mode": "Auto", "auto_cfg": {"enable": 1}}}
         return await self._send_command("ES.SetMode", params)
 
     async def set_es_mode_ai(self) -> dict[str, Any] | None:
         """Set energy system to AI mode."""
-        params = {
-            "id": 0,
-            "config": {
-                "mode": "AI",
-                "ai_cfg": {"enable": 1}
-            }
-        }
+        params = {"id": 0, "config": {"mode": "AI", "ai_cfg": {"enable": 1}}}
         return await self._send_command("ES.SetMode", params)
 
     async def set_es_mode_manual(
@@ -227,8 +223,8 @@ class MarstekVenusAPI:
                     "week_set": week_set,
                     "power": power,
                     "enable": 1,
-                }
-            }
+                },
+            },
         }
         return await self._send_command("ES.SetMode", params)
 
@@ -240,38 +236,28 @@ class MarstekVenusAPI:
             "id": 0,
             "config": {
                 "mode": "Passive",
-                "passive_cfg": {
-                    "power": power,
-                    "cd_time": cd_time
-                }
-            }
+                "passive_cfg": {"power": power, "cd_time": cd_time},
+            },
         }
         return await self._send_command("ES.SetMode", params)
 
     async def set_es_mode_ups(self) -> dict[str, Any] | None:
         """Set energy system to UPS mode."""
-        params = {
-            "id": 0,
-            "config": {
-                "mode": "UPS",
-                "ups_cfg": {"enable": 1}
-            }
-        }
+        params = {"id": 0, "config": {"mode": "UPS", "ups_cfg": {"enable": 1}}}
         return await self._send_command("ES.SetMode", params)
 
     async def set_es_mode(self, mode: str, **kwargs) -> dict[str, Any] | None:
         """Set energy system mode."""
         if mode == "Auto":
             return await self.set_es_mode_auto()
-        elif mode == "AI":
+        if mode == "AI":
             return await self.set_es_mode_ai()
-        elif mode == "Manual":
+        if mode == "Manual":
             return await self.set_es_mode_manual(**kwargs)
-        elif mode == "Passive":
+        if mode == "Passive":
             return await self.set_es_mode_passive(**kwargs)
-        else:
-            _LOGGER.error("Unknown mode: %s", mode)
-            return None
+        _LOGGER.error("Unknown mode: %s", mode)
+        return None
 
     async def get_all_status(
         self,

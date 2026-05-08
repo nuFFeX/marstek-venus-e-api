@@ -1,4 +1,5 @@
 """Support for Marstek Venus sensors."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -46,7 +47,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("battery", {}).get("soc") if data.get("battery") else None,
+        value_fn=lambda data: (
+            data.get("battery", {}).get("soc") if data.get("battery") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="battery_temperature",
@@ -55,7 +58,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("battery", {}).get("bat_temp") if data.get("battery") else None,
+        value_fn=lambda data: (
+            data.get("battery", {}).get("bat_temp") if data.get("battery") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="battery_capacity",
@@ -64,7 +69,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("battery", {}).get("bat_capacity") if data.get("battery") else None,
+        value_fn=lambda data: (
+            data.get("battery", {}).get("bat_capacity") if data.get("battery") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="rated_capacity",
@@ -72,7 +79,11 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         name="Rated Capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
-        value_fn=lambda data: data.get("battery", {}).get("rated_capacity") if data.get("battery") else None,
+        value_fn=lambda data: (
+            data.get("battery", {}).get("rated_capacity")
+            if data.get("battery")
+            else None
+        ),
     ),
     # PV sensors
     MarstekVenusSensorEntityDescription(
@@ -83,7 +94,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("pv", {}).get("pv_power") if data.get("pv") else None,
+        value_fn=lambda data: (
+            data.get("pv", {}).get("pv_power") if data.get("pv") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="pv_voltage",
@@ -92,7 +105,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("pv", {}).get("pv_voltage") if data.get("pv") else None,
+        value_fn=lambda data: (
+            data.get("pv", {}).get("pv_voltage") if data.get("pv") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="pv_current",
@@ -101,7 +116,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("pv", {}).get("pv_current") if data.get("pv") else None,
+        value_fn=lambda data: (
+            data.get("pv", {}).get("pv_current") if data.get("pv") else None
+        ),
     ),
     # Energy System sensors
     MarstekVenusSensorEntityDescription(
@@ -111,7 +128,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("bat_soc") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("bat_soc") if data.get("es") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="es_battery_capacity",
@@ -120,7 +139,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("bat_cap") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("bat_cap") if data.get("es") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="ongrid_power",
@@ -130,7 +151,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("ongrid_power") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("ongrid_power") if data.get("es") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="offgrid_power",
@@ -140,7 +163,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("offgrid_power") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("offgrid_power") if data.get("es") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="battery_power",
@@ -150,7 +175,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("bat_power") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("bat_power") if data.get("es") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="total_pv_energy",
@@ -160,7 +187,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: data.get("es", {}).get("total_pv_energy") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("total_pv_energy") if data.get("es") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="total_grid_output_energy",
@@ -170,7 +199,11 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: data.get("es", {}).get("total_grid_output_energy") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("total_grid_output_energy")
+            if data.get("es")
+            else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="total_grid_input_energy",
@@ -180,7 +213,11 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: data.get("es", {}).get("total_grid_input_energy") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("total_grid_input_energy")
+            if data.get("es")
+            else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="total_load_energy",
@@ -190,7 +227,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: data.get("es", {}).get("total_load_energy") if data.get("es") else None,
+        value_fn=lambda data: (
+            data.get("es", {}).get("total_load_energy") if data.get("es") else None
+        ),
     ),
     # Mode sensor
     MarstekVenusSensorEntityDescription(
@@ -198,7 +237,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         translation_key="operating_mode",
         name="Operating Mode",
         icon="mdi:cog-play",
-        value_fn=lambda data: data.get("mode", {}).get("mode") if data.get("mode") else None,
+        value_fn=lambda data: (
+            data.get("mode", {}).get("mode") if data.get("mode") else None
+        ),
     ),
     # CT / Energy Meter sensors
     MarstekVenusSensorEntityDescription(
@@ -209,7 +250,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("em", {}).get("total_power") if data.get("em") else None,
+        value_fn=lambda data: (
+            data.get("em", {}).get("total_power") if data.get("em") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="ct_phase_a_power",
@@ -220,7 +263,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=False,
-        value_fn=lambda data: data.get("em", {}).get("a_power") if data.get("em") else None,
+        value_fn=lambda data: (
+            data.get("em", {}).get("a_power") if data.get("em") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="ct_phase_b_power",
@@ -231,7 +276,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=False,
-        value_fn=lambda data: data.get("em", {}).get("b_power") if data.get("em") else None,
+        value_fn=lambda data: (
+            data.get("em", {}).get("b_power") if data.get("em") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="ct_phase_c_power",
@@ -242,7 +289,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=False,
-        value_fn=lambda data: data.get("em", {}).get("c_power") if data.get("em") else None,
+        value_fn=lambda data: (
+            data.get("em", {}).get("c_power") if data.get("em") else None
+        ),
     ),
     # WiFi sensors
     MarstekVenusSensorEntityDescription(
@@ -250,7 +299,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         translation_key="wifi_ssid",
         name="WiFi SSID",
         icon="mdi:wifi",
-        value_fn=lambda data: data.get("wifi", {}).get("ssid") if data.get("wifi") else None,
+        value_fn=lambda data: (
+            data.get("wifi", {}).get("ssid") if data.get("wifi") else None
+        ),
     ),
     MarstekVenusSensorEntityDescription(
         key="wifi_rssi",
@@ -259,7 +310,9 @@ SENSOR_TYPES: tuple[MarstekVenusSensorEntityDescription, ...] = (
         native_unit_of_measurement="dBm",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("wifi", {}).get("rssi") if data.get("wifi") else None,
+        value_fn=lambda data: (
+            data.get("wifi", {}).get("rssi") if data.get("wifi") else None
+        ),
     ),
 )
 
@@ -273,8 +326,7 @@ async def async_setup_entry(
     coordinator: MarstekVenusCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     async_add_entities(
-        MarstekVenusSensor(coordinator, description)
-        for description in SENSOR_TYPES
+        MarstekVenusSensor(coordinator, description) for description in SENSOR_TYPES
     )
 
 

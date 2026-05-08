@@ -1,4 +1,5 @@
 """Support for Marstek Venus switch entities."""
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,9 @@ async def async_setup_entry(
     )
 
 
-class MarstekVenusChargeSwitch(CoordinatorEntity[MarstekVenusCoordinator], SwitchEntity):
+class MarstekVenusChargeSwitch(
+    CoordinatorEntity[MarstekVenusCoordinator], SwitchEntity
+):
     """Representation of a Marstek Venus charge permission switch."""
 
     _attr_has_entity_name = True
@@ -82,7 +85,9 @@ class MarstekVenusChargeSwitch(CoordinatorEntity[MarstekVenusCoordinator], Switc
         _LOGGER.info("Charge permission control not yet implemented in API")
 
 
-class MarstekVenusDischargeSwitch(CoordinatorEntity[MarstekVenusCoordinator], SwitchEntity):
+class MarstekVenusDischargeSwitch(
+    CoordinatorEntity[MarstekVenusCoordinator], SwitchEntity
+):
     """Representation of a Marstek Venus discharge permission switch."""
 
     _attr_has_entity_name = True

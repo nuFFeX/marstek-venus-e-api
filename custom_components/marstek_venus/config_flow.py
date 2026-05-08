@@ -1,16 +1,16 @@
 """Config flow for Marstek Venus integration."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
-import homeassistant.helpers.config_validation as cv
 
 from .api import MarstekVenusAPI
 from .const import CONF_BLE_MAC, DEFAULT_PORT, DOMAIN
@@ -29,13 +29,13 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
     api = MarstekVenusAPI(data[CONF_HOST], data.get(CONF_PORT, DEFAULT_PORT))
-    
+
     # Try to discover device
     device_info = await api.discover_device(data.get(CONF_BLE_MAC, "0"))
-    
+
     if not device_info:
         raise CannotConnect("Could not connect to device")
-    
+
     # Return info that you want to store in the config entry.
     return {
         "title": f"{device_info.get('device', 'Marstek Venus')} ({data[CONF_HOST]})",
