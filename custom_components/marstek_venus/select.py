@@ -75,13 +75,17 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected mode."""
-        _LOGGER.debug("Changing mode to: %s", option)
+        _LOGGER.info("User-triggered mode change to: %s", option)
 
         try:
             if option == MODE_AUTO:
-                result = await self.coordinator.api.set_es_mode_auto()
+                result = await self.coordinator.api.set_es_mode_auto(
+                    cfg=self._current_mode_cfg("auto_cfg")
+                )
             elif option == MODE_AI:
-                result = await self.coordinator.api.set_es_mode_ai()
+                result = await self.coordinator.api.set_es_mode_ai(
+                    cfg=self._current_mode_cfg("ai_cfg")
+                )
             elif option == MODE_PASSIVE:
                 cfg = self._current_mode_cfg("passive_cfg")
                 result = await self.coordinator.api.set_es_mode_passive(
@@ -98,7 +102,9 @@ class MarstekVenusModeSelect(CoordinatorEntity[MarstekVenusCoordinator], SelectE
                     power=cfg.get("power", 100),
                 )
             elif option == MODE_UPS:
-                result = await self.coordinator.api.set_es_mode_ups()
+                result = await self.coordinator.api.set_es_mode_ups(
+                    cfg=self._current_mode_cfg("ups_cfg")
+                )
             else:
                 _LOGGER.error("Unknown mode: %s", option)
                 return

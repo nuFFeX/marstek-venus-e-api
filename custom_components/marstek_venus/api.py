@@ -95,7 +95,13 @@ class MarstekVenusAPI:
         req_id = self._get_next_id()
         command = {"id": req_id, "method": method, "params": params}
 
-        _LOGGER.debug("Sending command to %s:%s: %s", self.host, self.port, command)
+        # SetMode is the only write method we support and the prime suspect
+        # for device-side state resets. Log it at INFO so resets can be
+        # correlated to write activity even without DEBUG enabled.
+        if method == "ES.SetMode":
+            _LOGGER.info("ES.SetMode -> %s:%s payload=%s", self.host, self.port, params)
+        else:
+            _LOGGER.debug("Sending command to %s:%s: %s", self.host, self.port, command)
 
         try:
             loop = asyncio.get_running_loop()
@@ -193,14 +199,24 @@ class MarstekVenusAPI:
         """Get energy system mode."""
         return await self._send_command("ES.GetMode", {"id": 0})
 
-    async def set_es_mode_auto(self) -> dict[str, Any] | None:
-        """Set energy system to Auto mode."""
-        params = {"id": 0, "config": {"mode": "Auto", "auto_cfg": {"enable": 1}}}
+    async def set_es_mode_auto(
+        self, cfg: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """Set energy system to Auto mode.
+
+        If cfg is provided, its fields are preserved alongside enable=1 to
+        avoid the device interpreting a sparse payload as a config reset.
+        """
+        auto_cfg = {**(cfg or {}), "enable": 1}
+        params = {"id": 0, "config": {"mode": "Auto", "auto_cfg": auto_cfg}}
         return await self._send_command("ES.SetMode", params)
 
-    async def set_es_mode_ai(self) -> dict[str, Any] | None:
-        """Set energy system to AI mode."""
-        params = {"id": 0, "config": {"mode": "AI", "ai_cfg": {"enable": 1}}}
+    async def set_es_mode_ai(
+        self, cfg: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """Set energy system to AI mode (preserves cfg if provided)."""
+        ai_cfg = {**(cfg or {}), "enable": 1}
+        params = {"id": 0, "config": {"mode": "AI", "ai_cfg": ai_cfg}}
         return await self._send_command("ES.SetMode", params)
 
     async def set_es_mode_manual(
@@ -241,9 +257,12 @@ class MarstekVenusAPI:
         }
         return await self._send_command("ES.SetMode", params)
 
-    async def set_es_mode_ups(self) -> dict[str, Any] | None:
-        """Set energy system to UPS mode."""
-        params = {"id": 0, "config": {"mode": "UPS", "ups_cfg": {"enable": 1}}}
+    async def set_es_mode_ups(
+        self, cfg: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """Set energy system to UPS mode (preserves cfg if provided)."""
+        ups_cfg = {**(cfg or {}), "enable": 1}
+        params = {"id": 0, "config": {"mode": "UPS", "ups_cfg": ups_cfg}}
         return await self._send_command("ES.SetMode", params)
 
     async def set_es_mode(self, mode: str, **kwargs) -> dict[str, Any] | None:
